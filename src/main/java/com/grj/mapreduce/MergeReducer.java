@@ -19,7 +19,7 @@ import com.grj.StartMain;
 import com.grj.util.Constants;
 import com.grj.util.HbaseUtil;
 
-public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
+public class MergeReducer extends Reducer<Text, Text, Text, Text> {
 
 	public static Logger logger = LoggerFactory.getLogger(MergeReducer.class);
 	
@@ -27,7 +27,7 @@ public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
 
 	@SuppressWarnings("deprecation")
 	@Override
-	protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, NullWritable, Text>.Context context)
+	protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, Text, Text>.Context context)
 			throws IOException, InterruptedException {
 		/// 000e6a9e-f80e-4ed0-82a8-5ab36fc087ef PDY00083X41010217A5152 Q70.100
 		/// 3201 dbac8fb4-58cb-4320-a0bb-b88a520781a9 2 2014-04-14 2014-04-14
@@ -55,40 +55,35 @@ public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
 		Result result = getDataFromHbase(key, connection);
 		// HashMap<String, Object> hashMap = new HashMap<>();
 
-		MergeDataAndSave(key, hcount, ocount, hcost, ocost, result, connection);
-
+		MergeDataAndSave(key, hcount, ocount, hcost, ocost, result, connection, context);
 		// HbaseUtil.getConnection();
 
 	}
 
 	private void MergeDataAndSave(Text key, int hcount, int ocount, double hcost, double ocost, Result result,
-			Connection connection) throws IOException {
+			Connection connection,Context context) 
+					throws IOException, InterruptedException {
 		Cell hcostkeyValue = null;
 		Cell hcountkeyValue = null;
 		Cell ocostkeyValue = null;
 		Cell ocountkeyValue = null;
 
-			hcostkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
-					Constants.HBASE_COLUMN_HCOST_NAME.getBytes());
-			hcountkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
-					Constants.HBASE_COLUMN_HCOUNT_NAME.getBytes());
-			ocostkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
-					Constants.HBASE_COLUMN_OCOST_NAME.getBytes());
-			ocountkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
-					Constants.HBASE_COLUMN_OCOUNT_NAME.getBytes());
+		hcostkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
+				Constants.HBASE_COLUMN_HCOST_NAME.getBytes());
+		hcountkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
+				Constants.HBASE_COLUMN_HCOUNT_NAME.getBytes());
+		ocostkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
+				Constants.HBASE_COLUMN_OCOST_NAME.getBytes());
+		ocountkeyValue = result.getColumnLatestCell(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(),
+				Constants.HBASE_COLUMN_OCOUNT_NAME.getBytes());
 
 
 			
-			double newhcost = 0.0;
-			double newocost = 0.0;
-			int newhcount = 0;
-			int newocount = 0;	
-		// 如果历史数据不存在，则keyvalue为空 为此需要三元运算符 当keyvalue为空的时候 默认的值为0
-		/*if(hcostkeyValue != null){
-			logger.info("*******************"+hcostkeyValue);
-			newhcost = hcost + Bytes.toDouble(Bytes.toBytes(0.0));
-		}	*/
-		
+		double newhcost = 0.0;
+		double newocost = 0.0;
+		int newhcount = 0;
+		int newocount = 0;	
+		// 如果历史数据不存在，则keyvalue为空 为此需要三元运算符 当keyvalue为空的时候 默认的值为0	
 		if(hcostkeyValue != null){
 			newhcost = hcost + Bytes.toDouble(CellUtil.cloneValue(hcostkeyValue));
 		}else{
@@ -112,7 +107,12 @@ public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
 		}else{
 			newocount = ocount + Bytes.toInt(Bytes.toBytes(0D));
 		}
-		
+		//计算平均指标  输出到hdfs上
+		double avghcost=newhcost/newhcount;
+		double avgocost=newocost/newocount;
+		Text outValue = new Text();
+		outValue.set(avghcost+"\t"+avgocost);
+		context.write(key, outValue);
 
 		
 		
@@ -121,6 +121,12 @@ public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
 
 		put.addColumn(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(), Constants.HBASE_COLUMN_HCOST_NAME.getBytes(),
 				Bytes.toBytes(newhcost));
+		put.addColumn(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(), Constants.HBASE_COLUMN_OCOST_NAME.getBytes(),
+				Bytes.toBytes(newocost));
+		put.addColumn(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(), Constants.HBASE_COLUMN_HCOUNT_NAME.getBytes(),
+				Bytes.toBytes(newhcount));
+		put.addColumn(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(), Constants.HBASE_COLUMN_OCOUNT_NAME.getBytes(),
+				Bytes.toBytes(newocount));
 
 		HbaseUtil.savePut(put, Constants.HBASE_TABLE_NAME, connection);
 
@@ -132,7 +138,7 @@ public class MergeReducer extends Reducer<Text, Text, NullWritable, Text> {
 	}
 
 	@Override
-	protected void cleanup(Reducer<Text, Text, NullWritable, Text>.Context context)
+	protected void cleanup(Reducer<Text, Text, Text, Text>.Context context)
 			throws IOException, InterruptedException {
 		connection.close();
 	}

@@ -6,7 +6,7 @@
 
 	<property>
 		<name>hbase.zookeeper.quorum</name>
-		<value>master,slaver1,slaver2</value>
+		<value>hadoop01</value>
 	
 	</property>
 	<property>

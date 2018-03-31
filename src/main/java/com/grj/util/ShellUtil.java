@@ -13,24 +13,16 @@ import ch.ethz.ssh2.Connection;
 import ch.ethz.ssh2.Session;
 import ch.ethz.ssh2.StreamGobbler;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import ch.ethz.ssh2.Connection;
-import ch.ethz.ssh2.Session;
-import ch.ethz.ssh2.StreamGobbler;
 
 public class ShellUtil {
+	/**
+	 * 测试ShellUtil时使用
+	 */
 	public static void main(String[] args) throws IOException {
-		String result = ShellUtil.execute("192.168.6.250","root","123456","cd /root/test;./sshshelll.sh");
+		String result = ShellUtil.execute("192.168.197.131","root","root","ls;ls");
 		System.out.println(result);
 	}
+	
 	private static Logger logger=LoggerFactory.getLogger(ShellUtil.class);
 	public static String execute(String ip, String username, String password, String cmd) throws IOException {
 		
@@ -41,6 +33,7 @@ public class ShellUtil {
         	Session session = conn.openSession();
         	session.execCommand(cmd);
         	InputStream stdout = session.getStdout();
+        	
         	String result = processStdout(stdout, "utf-8");
         	return result;
         	

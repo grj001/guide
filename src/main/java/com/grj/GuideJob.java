@@ -1,9 +1,16 @@
 package com.grj;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+
+import static org.quartz.DateBuilder.evenMinuteDate;
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
+
+import org.quartz.CronScheduleBuilder;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -20,6 +27,15 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.quartz.CronScheduleBuilder;
+import org.quartz.CronTrigger;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SchedulerFactory;
+import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -33,45 +49,96 @@ import com.grj.util.HbaseUtil;
 import com.grj.util.RedisUtil;
 import com.grj.util.ShellUtil;
 
-public class StartMain {
+public class GuideJob implements org.quartz.Job {
 
-	public static Logger logger = LoggerFactory.getLogger(StartMain.class);
+	public static Logger logger = LoggerFactory.getLogger(GuideJob.class);
 
 	public static ClassPathXmlApplicationContext applicationContext = 
 			new ClassPathXmlApplicationContext("applicationContext.xml");
 	
+	/**
+	 * 这个方法要在com.grj.Main里进行使用
+	 */
+	@Deprecated
 	public static void main(String[] args) {
-		StartMain startMain = new StartMain();
-		// step1:执行mapreduce 初级计算
-		/*try {
-			startMain.runGetRecostMapReduce();
-		} catch (Exception e) {
-			logger.info(e.getMessage());
+
+		/*SchedulerFactory sf = new StdSchedulerFactory();
+		Scheduler sched;
+		
+		try {
+			sched = sf.getScheduler();
+			Date runTime = evenMinuteDate(new Date());
+
+			JobDetail job = newJob(SimpleTimingScheduleTest.class)
+					.withIdentity("job1", "group1").build();
+
+
+			CronTrigger trigger = newTrigger()
+					.withIdentity("trigger1", "group1")
+					.withSchedule(CronScheduleBuilder.cronSchedule(Constants.CRONSCHEDULE))
+			        .build();
+
+			sched.scheduleJob(job, trigger);
+
+			sched.start();
+
+			Thread.sleep(100L * 1000L);
+			sched.shutdown(true);
+			
+		} catch (SchedulerException | InterruptedException e) {
 			e.printStackTrace();
 		}*/
-
-
-		// step2:合并计算结果存入hbase
+		
 		try {
-			startMain.runMergeMapReduce();
-		} catch (Exception e) {
+			new GuideJob().execute(null);
+		} catch (JobExecutionException e) {
 			e.printStackTrace();
 		}
-		// step3:加入redis
-		// startMain.loadDataToRedis();
-			
-		// step4:通过sqoop把计算指标放入mysql
-		// startMain.saveResultToMysql();
 
+		
 	}
 
-	/*
+	
+	
+	@Override
+	public void execute(JobExecutionContext context) throws JobExecutionException {
+		GuideJob GuideJob = new GuideJob();
+
+		try {
+			// step1:执行mapreduce 初级计算
+			GuideJob.runGetRecostMapReduce();
+		} catch (Exception e) {
+			logger.info(e.getMessage());
+		}
+		try {
+			// step2:合并计算结果存入hbase
+			GuideJob.runMergeMapReduce();
+		} catch (ClassNotFoundException | IOException | InterruptedException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			// step3:加入redis
+			GuideJob.loadDataToRedis();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		
+		try {
+			// step4:通过sqoop把计算指标放入mysql
+			GuideJob.saveResultToMysql();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}	
+
+		
+	}
+
+	/**
 	 *  Import HBase data into Redis.
 	 */
 	@SuppressWarnings("unused")
 	private void loadDataToRedis() throws IOException {
-		// 从hbase中把所有数据都取出来 然后再存入redis
-		
 		//get a connection to hbase
 		Connection connection = HbaseUtil.getConnection();
 		
@@ -112,8 +179,9 @@ public class StartMain {
 
 	}
 
+	
 	/**
-	 * Change the value according to the qualifier.
+	 * Change the value 成String类型 according to the qualifier.
 	 */
 	private String changeFieldToString(byte[] qualifier, byte[] value) {
 		String colName = Bytes.toString(qualifier);
@@ -126,11 +194,12 @@ public class StartMain {
 		}
 	}
 
+	
 	/**
 	 * Import HDFS data into mysql via sqoop1.
 	 */
 	private void saveResultToMysql() throws IOException {
-		//System.out.println("asa");
+		logger.info("-------------------Import HDFS data into mysql via sqoop1.");
 		//计算结果保存在hdfs上  sqoop安装在远程linux上  因此需要远程连接linux，执行shell脚本
 		
 		/*
@@ -153,21 +222,29 @@ public class StartMain {
 		 * --table guide_hospital 
 		 * --export-dir /guide/merge/part-r-00000 
 		 * --input-fields-terminated-by '\t' 
-		 * --mysql-delimiters 
+		 * --mysql-delimiters
 		 */
-		ShellUtil.execute("192.168.197.128","root","root","/test/guide/guide_sqoop.sh");
+		String result = ShellUtil.execute(
+				Constants.MASTER_HOST
+				,Constants.MASTER_USERNAME
+				,Constants.MASTER_PASSWORD
+				,Constants.MASTER_SHELL_SCRIPT);
 		
-		
+		System.out.println(result);
 	}
 
+	
+	/**
+	 * 合并(record+reimbusers)的数据
+	 */
 	@SuppressWarnings("unused")
 	private void runMergeMapReduce() 
 			throws IOException, ClassNotFoundException, InterruptedException {
 		
 		Configuration configuration = new Configuration();
-		Job job = Job.getInstance(configuration, "save data to hbase");
+		Job job = Job.getInstance(configuration, Constants.JOB_MERGE_NAME);
 		//
-		job.setJarByClass(StartMain.class);
+		job.setJarByClass(GuideJob.class);
 		job.setMapperClass(MergeMapper.class);
 		job.setReducerClass(MergeReducer.class);
 
@@ -179,39 +256,44 @@ public class StartMain {
 		job.setOutputValueClass(Text.class);
 
 		// 设置输入路径
-		FileInputFormat.addInputPath(job, new Path("/guide/out/"));
+		FileInputFormat.addInputPath(job, new Path(Constants.JOB_MERGE_INPUT_PATH));
 		//得到hdfs文件管理系统, 进行递归删除, 先进行删除
-		Path outputPath = new Path("/guide/outnull/");
+		Path outputPath = new Path(Constants.JOB_MERGE_OUTPUT_PATH);
 		outputPath.getFileSystem(configuration).delete(outputPath,true);
 		FileOutputFormat.setOutputPath(job, outputPath);
 		
 		job.waitForCompletion(true);		
 	}
 
+	
+	
+	/**
+	 * 关联(record+reimbuser)数据
+	 */
 	@SuppressWarnings("unused")
 	private void runGetRecostMapReduce() 
 			throws IOException, ClassNotFoundException, InterruptedException {
 		
+		logger.info("----------------------------------------"+"runGetRecostMapReduce");
+		
 		Configuration configuration = new Configuration();
-		Job job = Job.getInstance(configuration, Constants.JOB_NAME);
+		Job job = Job.getInstance(configuration, Constants.JOB_GETRECOST_NAME);
 		//
-		job.setJarByClass(StartMain.class);
+		job.setJarByClass(GuideJob.class);
 		job.setMapperClass(GetRecostMapper.class);
-		job.setCombinerClass(GetRecostReducer.class);
 		job.setReducerClass(GetRecostReducer.class);
 
 		job.setMapOutputKeyClass(Text.class);
 		job.setMapOutputValueClass(Text.class);
 
 		// 设置输出key 和 value 的类型
-
 		job.setOutputKeyClass(NullWritable.class);
 		job.setOutputValueClass(Text.class);
 
 		// 设置输入 输出路径
-		FileInputFormat.addInputPath(job, new Path(Constants.JOB_INPUT_PATH));
+		FileInputFormat.addInputPath(job, new Path(Constants.JOB_GETRECOST_INPUT_PATH));
 		//得到hdfs文件管理系统, 进行递归删除, 先进行删除
-		Path outputPath = new Path(Constants.JOB_OUTPUT_PATH);
+		Path outputPath = new Path(Constants.JOB_GETRECOST_OUTPUT_PATH);
 		outputPath.getFileSystem(configuration).delete(outputPath,true);
 		FileOutputFormat.setOutputPath(job, outputPath);
 

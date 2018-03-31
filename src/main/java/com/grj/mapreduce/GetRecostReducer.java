@@ -5,8 +5,14 @@ import java.io.IOException;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class GetRecostReducer extends Reducer<Text, Text, NullWritable, Text>{
+	
+	public static Logger logger = LoggerFactory.getLogger(GetRecostReducer.class);
+	
 
 	@Override
 	protected void reduce(Text key, Iterable<Text> values, Reducer<Text, Text, NullWritable, Text>.Context context)
@@ -27,6 +33,7 @@ public class GetRecostReducer extends Reducer<Text, Text, NullWritable, Text>{
 			
 		}
 		String valueOut=record+"\t"+reimbursetime+"\t"+sum;
+		
 		context.write(NullWritable.get(), new Text(valueOut));
 		
 	}

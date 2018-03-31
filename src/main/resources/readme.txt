@@ -1,2 +1,5 @@
 数据文件为
-智能导诊程序设计文档\数据sql
+智能导诊程序设计文档\数据sql\record.txt, reimburse.txt
+
+hbase redis mysql hadoop 
+

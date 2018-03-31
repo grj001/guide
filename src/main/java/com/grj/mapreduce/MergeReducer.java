@@ -4,18 +4,15 @@ import java.io.IOException;
 
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.grj.StartMain;
 import com.grj.util.Constants;
 import com.grj.util.HbaseUtil;
 
@@ -128,6 +125,7 @@ public class MergeReducer extends Reducer<Text, Text, Text, Text> {
 		put.addColumn(Constants.HBASE_COLUMN_FAMILY_NAME.getBytes(), Constants.HBASE_COLUMN_OCOUNT_NAME.getBytes(),
 				Bytes.toBytes(newocount));
 
+		
 		HbaseUtil.savePut(put, Constants.HBASE_TABLE_NAME, connection);
 
 	}

@@ -1,16 +1,9 @@
 package com.grj;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-
-import static org.quartz.DateBuilder.evenMinuteDate;
-import static org.quartz.JobBuilder.newJob;
-import static org.quartz.TriggerBuilder.newTrigger;
-
-import org.quartz.CronScheduleBuilder;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -27,15 +20,8 @@ import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.quartz.CronScheduleBuilder;
-import org.quartz.CronTrigger;
-import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.quartz.SchedulerFactory;
-import org.quartz.impl.StdSchedulerFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
@@ -53,6 +39,9 @@ public class GuideJob implements org.quartz.Job {
 
 	public static Logger logger = LoggerFactory.getLogger(GuideJob.class);
 
+	/**
+	 * springdata 和 redis 整合所用的配置文件,加入spring容器中
+	 */
 	public static ClassPathXmlApplicationContext applicationContext = 
 			new ClassPathXmlApplicationContext("applicationContext.xml");
 	
